@@ -6,7 +6,7 @@
 #pragma semicolon 1
 
 ConVar g_cKickType, g_cPluginEnabled, g_cKickReason ,g_cServerReason, g_cKickEnabled, g_cRedirectEnabled, g_hRedirect;
-char g_sServerIP[64];
+char g_sServerIP[24];
 
 public Plugin myinfo = 
 {
