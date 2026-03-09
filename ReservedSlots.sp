@@ -1,17 +1,19 @@
 #include <sourcemod>
 #include <PTaH>
+#include <server_redirect>
 
 #pragma newdecls required
 #pragma semicolon 1
 
-ConVar g_cKickType, g_cPluginEnabled, g_cKickReason ,g_cServerReason, g_cKickEnabled;
+ConVar g_cKickType, g_cPluginEnabled, g_cKickReason ,g_cServerReason, g_cKickEnabled, g_cRedirectEnabled, g_hRedirect;
+char g_sServerIP[64];
 
 public Plugin myinfo = 
 {
 	name 		= 	"Reserved slots using PTaH and MaxClients Kicker",
-	author 		= 	"Nano.",
-	description 	= 	"Kick non-vips when a vip joins, and prevents players from exceeding the max-slots player limit.",
-	version 		= 	"1.5",
+	author 		= 	"Nano, Letaryat",
+	description 	= 	"Kick or redirects to another server non-vips when a vip joins, and prevents players from exceeding the max-slots player limit.",
+	version 		= 	"2.1",
 	url 			= 	"https://steamcommunity.com/id/marianzet1/"
 }
 
@@ -24,9 +26,47 @@ public void OnPluginStart()
 	g_cKickReason			= 	CreateConVar("sm_reserved_slots_reason", "You were kicked because a VIP joined.", "Reason used when kicking players");
 	g_cServerReason		= 	CreateConVar("sm_reserved_slots_fullserverreason", "Server is full! Try to join later, please.", "Reason used when someone without privileges join");
 
+	g_cRedirectEnabled		=	CreateConVar("sm_redirect_slots_enabled", 	"1", "Enables/disables redirection to another server", FCVAR_NONE, true, 0.0, true, 1.0);
+	g_hRedirect = CreateConVar("sm_redirect_server", "192.168.0.1:27015", "server ip to which the player will automatically redirected");
+	g_hRedirect.AddChangeHook(Change_);
+
+	ParseRedirectIP();
+
 	AutoExecConfig(true, "ReservedSlots");
+	LoadTranslations("reservedslots.phrases");
 	
 	PTaH(PTaH_ClientConnectPre, Hook, Hook_OnClientConnect);
+}
+
+public void Change_ (ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	ParseRedirectIP();
+}
+
+void ParseRedirectIP()
+{
+	g_hRedirect.GetString(g_sServerIP, sizeof g_sServerIP);
+
+}
+
+public Action Timer_Redirect(Handle timer, any client)
+{
+	if (IsClientInGame(client))
+	{
+		RedirectClient(client, g_sServerIP);
+	}
+
+	return Plugin_Stop;
+}
+
+void RedirectWithDelay(int client)
+{
+	if (!IsClientInGame(client))
+		return;
+
+	PrintToChat(client, "%t", "RedirectMessage");
+
+	CreateTimer(6.0, Timer_Redirect, client);
 }
 
 public Action Hook_OnClientConnect(int iAccountID, const char[] sIp, const char[] sName, char sPassword[128], char rejectReason[255])
@@ -53,7 +93,19 @@ public Action Hook_OnClientConnect(int iAccountID, const char[] sIp, const char[
 			if (iTarget)
 			{
 				GetConVarString(g_cKickReason, rejectReason, sizeof(rejectReason));
-				KickClientEx(iTarget, "%s", rejectReason);
+				
+				if(g_cRedirectEnabled.BoolValue)
+				{
+					//RedirectClient(iClient, g_sServerIP);
+					RedirectWithDelay(iTarget);
+				}
+				else
+				{
+					KickClient(iTarget, "%s", rejectReason);
+				}
+
+				//KickClientEx(iTarget, "%s", rejectReason);
+				//RedirectClient(iClient, g_sServerIP);
 			}
 		}
 	}
@@ -75,7 +127,7 @@ int SelectKickClient()
 	
 		int iFlags = GetUserFlagBits(i);
 		
-		if (IsFakeClient(i) || iFlags & ADMFLAG_ROOT || iFlags & ADMFLAG_RESERVATION || CheckCommandAccess(i, "sm_reskick_immunity", ADMFLAG_RESERVATION, false))
+		if (IsFakeClient(i) || IsClientSourceTV(i) || IsClientReplay(i) || iFlags & ADMFLAG_ROOT || iFlags & ADMFLAG_RESERVATION || CheckCommandAccess(i, "sm_reskick_immunity", ADMFLAG_RESERVATION, false))
 		{
 			continue;
 		}
@@ -144,7 +196,16 @@ public void OnClientPostAdminCheck(int client)
 		if(!GetUserAdmin(client).HasFlag(Admin_Reservation))
 		{
 			GetConVarString(g_cServerReason, sKickReason, sizeof(sKickReason));
-			KickClient(client, "%s", sKickReason);
+			
+			if(g_cRedirectEnabled.BoolValue)
+			{
+				//RedirectClient(iClient, g_sServerIP);
+				RedirectWithDelay(client);
+			}
+			else
+			{
+				KickClient(client, "%s", sKickReason);
+			}
 		}
 	}
 }

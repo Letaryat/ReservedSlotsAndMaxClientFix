@@ -1,0 +1,8 @@
+"Phrases"
+{
+	"RedirectMessage"
+	{
+		"en"	"Player with VIP access joined the server. You will be redirected to another server in 5 seconds. Buy VIP access to not be moved!"
+		"pl"	"Gracz z VIPem dolaczyl na serwer. Zostaniesz przeniesiony na inny serwer za 5 sekund. Zakup VIPa aby nie byc przeniesionym!"
+	}
+}
